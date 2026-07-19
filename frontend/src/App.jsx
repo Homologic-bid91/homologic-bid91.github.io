@@ -236,6 +236,7 @@ export default function App() {
             <InteractiveTools 
               onboardingStages={onboardingStages} 
               flashcards={flashcards} 
+              apiUrl={API_URL}
             />
           </section>
         )}

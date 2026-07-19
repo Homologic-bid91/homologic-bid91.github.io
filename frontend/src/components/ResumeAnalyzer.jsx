@@ -1,14 +1,61 @@
 import React, { useState } from 'react';
 
-export default function ResumeAnalyzer() {
+export default function ResumeAnalyzer({ apiUrl = '' }) {
   const [resumeText, setResumeText] = useState('');
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [uploadMode, setUploadMode] = useState('file'); // 'file' or 'text'
   const [targetCompany, setTargetCompany] = useState('Cognizant');
   const [analyzing, setAnalyzing] = useState(false);
   const [analysisStep, setAnalysisStep] = useState('');
   const [results, setResults] = useState(null);
+  const [dragActive, setDragActive] = useState(false);
 
-  const handleAnalyze = () => {
-    if (!resumeText.trim()) {
+  const handleDrag = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.type === "dragenter" || e.type === "dragover") {
+      setDragActive(true);
+    } else if (e.type === "dragleave") {
+      setDragActive(false);
+    }
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+    
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      const file = e.dataTransfer.files[0];
+      validateAndSetFile(file);
+    }
+  };
+
+  const handleFileChange = (e) => {
+    if (e.target.files && e.target.files[0]) {
+      validateAndSetFile(e.target.files[0]);
+    }
+  };
+
+  const validateAndSetFile = (file) => {
+    const filename = file.name.toLowerCase();
+    if (filename.endsWith('.pdf') || filename.endsWith('.docx') || filename.endsWith('.txt')) {
+      setSelectedFile(file);
+    } else {
+      alert("Unsupported file format! Please upload a PDF (.pdf), Word (.docx), or Text (.txt) file.");
+    }
+  };
+
+  const clearFile = () => {
+    setSelectedFile(null);
+  };
+
+  const handleAnalyze = async () => {
+    if (uploadMode === 'file' && !selectedFile) {
+      alert("Please upload a resume file (.pdf, .docx, .txt) to analyze!");
+      return;
+    }
+    if (uploadMode === 'text' && !resumeText.trim()) {
       alert("Please paste your resume text to analyze!");
       return;
     }
@@ -16,120 +63,58 @@ export default function ResumeAnalyzer() {
     setAnalyzing(true);
     setResults(null);
     
-    // Simulate multi-stage analysis steps for high-premium experience
+    // Simulated UI steps for premium feel
     const steps = [
-      "Parsing resume document structure...",
-      "Extracting sections & contact details...",
-      "Analyzing technical skill keywords...",
-      "Evaluating action verb strength...",
-      "Calculating ATS compatibility metrics..."
+      "Parsing resume file format...",
+      "Extracting text content...",
+      "Analyzing document structure...",
+      "Matching keyword metrics...",
+      "Calculating ATS compatibility score..."
     ];
     
-    let currentStepIdx = 0;
+    let stepIdx = 0;
     setAnalysisStep(steps[0]);
     
     const interval = setInterval(() => {
-      currentStepIdx += 1;
-      if (currentStepIdx < steps.length) {
-        setAnalysisStep(steps[currentStepIdx]);
+      stepIdx += 1;
+      if (stepIdx < steps.length) {
+        setAnalysisStep(steps[stepIdx]);
       } else {
         clearInterval(interval);
-        performAnalysis();
       }
-    }, 450);
-  };
+    }, 350);
 
-  const performAnalysis = () => {
-    const text = resumeText.toLowerCase();
-    
-    // 1. Check for contact details
-    const hasEmail = text.includes('@') && (text.includes('.com') || text.includes('.in') || text.includes('.org') || text.includes('.edu'));
-    const hasPhone = (text.match(/\+?\d[\d\s-]{8,12}\d/) !== null);
-    const hasLinkedIn = text.includes('linkedin.com');
-    const hasGitHub = text.includes('github.com');
-    
-    // 2. Check for standard sections
-    const hasEducation = text.includes('education') || text.includes('school') || text.includes('university') || text.includes('college') || text.includes('btech') || text.includes('cgpa');
-    const hasExperience = text.includes('experience') || text.includes('work') || text.includes('intern') || text.includes('employment') || text.includes('job');
-    const hasProjects = text.includes('project') || text.includes('projects');
-    const hasSkills = text.includes('skill') || text.includes('skills') || text.includes('languages') || text.includes('technologies');
-    
-    // 3. Count Action Verbs
-    const actionVerbsList = [
-      'led', 'developed', 'designed', 'created', 'optimized', 
-      'implemented', 'managed', 'built', 'solved', 'reduced', 
-      'increased', 'achieved', 'initiated', 'engineered', 'formulated'
-    ];
-    const foundVerbs = actionVerbsList.filter(verb => text.includes(verb));
-    const verbCount = foundVerbs.length;
+    try {
+      const formData = new FormData();
+      formData.append('company', targetCompany);
 
-    // 4. Calculate ATS Score
-    let score = 40; // Base score
-    if (hasEmail) score += 10;
-    if (hasPhone) score += 10;
-    if (hasLinkedIn) score += 10;
-    if (hasGitHub) score += 10;
-    if (hasEducation) score += 5;
-    if (hasExperience) score += 5;
-    if (hasProjects) score += 5;
-    if (hasSkills) score += 5;
-    if (verbCount >= 4) score += 10;
-    else if (verbCount >= 2) score += 5;
-    
-    // Cap score at 100
-    score = Math.min(100, score);
+      if (uploadMode === 'file' && selectedFile) {
+        formData.append('file', selectedFile);
+      } else {
+        formData.append('text', resumeText);
+      }
 
-    // 5. Generate recommendations
-    const recommendations = [];
-    if (!hasEmail || !hasPhone) {
-      recommendations.push("Add clear contact information (Email and Phone) at the top of your resume so recruiters can reach out.");
-    }
-    if (!hasLinkedIn) {
-      recommendations.push("Include a link to your LinkedIn profile. It helps recruiters verify your professional credentials.");
-    }
-    if (!hasGitHub) {
-      recommendations.push("Add your GitHub profile link. For tech roles, recruiters look for repositories showing actual coding projects.");
-    }
-    if (!hasEducation) {
-      recommendations.push("Clearly outline an 'Education' section detailing your Degree, Stream, Year of Graduation, and CGPA/Percentage.");
-    }
-    if (!hasExperience && !hasProjects) {
-      recommendations.push("Add a 'Projects' or 'Work Experience' section. Detail at least 2 software projects showing what you built.");
-    }
-    if (!hasSkills) {
-      recommendations.push("Create a designated 'Technical Skills' section grouping your languages (Java, Python, Javascript) and tools (Git, SQL).");
-    }
-    if (verbCount < 3) {
-      recommendations.push("Start your project and work descriptions with strong action verbs (e.g. 'Optimized app load time...' instead of 'I was responsible for...');");
-    }
+      // Call Python FastAPI parser backend
+      const endpoint = `${apiUrl}/api/analyze-resume`;
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        body: formData
+      });
 
-    // 6. Target company customized tips
-    let companyAdvice = "";
-    if (targetCompany === "Cognizant") {
-      companyAdvice = "Cognizant looks for strong fundamentals in Object Oriented Programming (Java/Python) and Database Systems (SQL). Ensure these keywords are prominently listed. For GenC Elevate, emphasize full-stack project architectures.";
-    } else if (targetCompany === "TCS") {
-      companyAdvice = "TCS NQT evaluates logical reasoning and programming proficiency. Focus on highlighting Data Structures, Algorithms, and core academic projects on your resume. Make sure to specify languages used in each project.";
-    } else if (targetCompany === "Accenture") {
-      companyAdvice = "Accenture values modern development methodologies (Agile, SDLC), Cloud awareness (AWS/Azure), and frontend/backend frameworks. Adding terms like 'REST API', 'Git version control', or 'Cloud deployment' will boost compatibility.";
-    } else {
-      companyAdvice = "For general ATS parsers, ensure you use simple fonts, standard section headers, and avoid complex table borders or double-column layouts that confuse reader bots.";
-    }
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.detail || "Server error analyzing resume.");
+      }
 
-    setResults({
-      score,
-      hasEmail,
-      hasPhone,
-      hasLinkedIn,
-      hasGitHub,
-      hasEducation,
-      hasExperience,
-      hasProjects,
-      hasSkills,
-      verbCount,
-      recommendations,
-      companyAdvice
-    });
-    setAnalyzing(false);
+      const data = await res.json();
+      setResults(data);
+    } catch (err) {
+      console.error(err);
+      alert(`Analysis Failed: ${err.message}`);
+    } finally {
+      clearInterval(interval);
+      setAnalyzing(false);
+    }
   };
 
   return (
@@ -161,7 +146,63 @@ export default function ResumeAnalyzer() {
           border-radius: 16px;
           padding: 1.5rem;
           color: #fff;
+          min-height: 400px;
         }
+        .upload-selector {
+          display: flex;
+          background: rgba(255,255,255,0.02);
+          border-radius: 8px;
+          padding: 0.25rem;
+          border: 1px solid var(--border-glass);
+        }
+        .upload-tab {
+          flex: 1;
+          background: none;
+          border: none;
+          color: var(--text-muted);
+          padding: 0.5rem;
+          font-size: 0.85rem;
+          font-weight: 600;
+          cursor: pointer;
+          border-radius: 6px;
+          transition: background 0.2s, color 0.2s;
+        }
+        .upload-tab.active {
+          background: rgba(255,255,255,0.08);
+          color: #fff;
+        }
+        
+        /* Drag & Drop File Zone */
+        .dropzone {
+          border: 2px dashed var(--border-glass);
+          border-radius: 12px;
+          padding: 2.5rem 1rem;
+          text-align: center;
+          background: rgba(255,255,255,0.01);
+          cursor: pointer;
+          transition: border-color 0.2s, background 0.2s;
+          position: relative;
+        }
+        .dropzone.active {
+          border-color: var(--primary);
+          background: rgba(6, 182, 212, 0.05);
+        }
+        .dropzone-text {
+          font-size: 0.85rem;
+          color: var(--text-secondary);
+          margin-top: 0.75rem;
+        }
+        
+        .selected-file-card {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          background: rgba(255,255,255,0.03);
+          border: 1px solid var(--border-glass);
+          padding: 0.75rem 1rem;
+          border-radius: 8px;
+        }
+        
         .score-circle-wrapper {
           display: flex;
           flex-direction: column;
@@ -224,7 +265,7 @@ export default function ResumeAnalyzer() {
         }
       `}</style>
 
-      <h3 style={{ color: '#fff', fontSize: '1.25rem', marginBottom: '1.5rem' }}>AI-Style Resume Analyzer (ATS Checker)</h3>
+      <h3 style={{ color: '#fff', fontSize: '1.25rem', marginBottom: '1.5rem' }}>AI Resume Analyzer (ATS Checker)</h3>
 
       <div className="analyzer-grid">
         {/* Input Text Area Panel */}
@@ -245,18 +286,93 @@ export default function ResumeAnalyzer() {
             </select>
           </div>
 
-          <div style={{ flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
+          <div>
             <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '0.5rem', fontWeight: 500 }}>
-              Paste Resume Content (Plain Text):
+              Analysis Input Method:
             </label>
-            <textarea
-              rows="12"
-              value={resumeText}
-              onChange={(e) => setResumeText(e.target.value)}
-              placeholder="Copy everything from your resume document (PDF or Word) and paste it here..."
-              style={{ width: '100%', flexGrow: 1, padding: '1rem', background: 'rgba(255, 255, 255, 0.01)', border: '1px solid var(--border-glass)', borderRadius: '8px', color: '#fff', fontSize: '0.85rem', lineHeight: 1.5, resize: 'none' }}
-            />
+            <div className="upload-selector">
+              <button 
+                type="button"
+                className={`upload-tab ${uploadMode === 'file' ? 'active' : ''}`}
+                onClick={() => { setUploadMode('file'); setResults(null); }}
+              >
+                Upload PDF / Word File
+              </button>
+              <button 
+                type="button"
+                className={`upload-tab ${uploadMode === 'text' ? 'active' : ''}`}
+                onClick={() => { setUploadMode('text'); setResults(null); }}
+              >
+                Paste Resume Text
+              </button>
+            </div>
           </div>
+
+          {uploadMode === 'file' ? (
+            <div style={{ flexGrow: 1, display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              {!selectedFile ? (
+                <div 
+                  className={`dropzone ${dragActive ? 'active' : ''}`} 
+                  onDragEnter={handleDrag}
+                  onDragOver={handleDrag}
+                  onDragLeave={handleDrag}
+                  onDrop={handleDrop}
+                  onClick={() => document.getElementById('resume-file-input').click()}
+                >
+                  <input 
+                    id="resume-file-input"
+                    type="file" 
+                    accept=".pdf,.docx,.txt" 
+                    onChange={handleFileChange}
+                    style={{ display: 'none' }}
+                  />
+                  <svg viewBox="0 0 24 24" width="40" height="40" stroke="var(--primary)" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round" style={{ margin: '0 auto', opacity: 0.8 }}>
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                    <polyline points="17 8 12 3 7 8"></polyline>
+                    <line x1="12" y1="3" x2="12" y2="15"></line>
+                  </svg>
+                  <p className="dropzone-text">
+                    Drag & drop your resume file here or <span style={{ color: 'var(--primary)', fontWeight: 'bold' }}>Browse files</span>
+                  </p>
+                  <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.5rem' }}>Supports: PDF, DOCX, TXT (Max 10MB)</p>
+                </div>
+              ) : (
+                <div className="selected-file-card">
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                    <svg viewBox="0 0 24 24" width="24" height="24" stroke="var(--primary)" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                      <polyline points="14 2 14 8 20 8"></polyline>
+                    </svg>
+                    <div style={{ textAlign: 'left' }}>
+                      <div style={{ fontSize: '0.9rem', color: '#fff', fontWeight: '500', maxWidth: '180px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {selectedFile.name}
+                      </div>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                        {(selectedFile.size / 1024).toFixed(1)} KB
+                      </div>
+                    </div>
+                  </div>
+                  <button 
+                    type="button"
+                    onClick={clearFile}
+                    style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 'bold' }}
+                  >
+                    Change File
+                  </button>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div style={{ flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
+              <textarea
+                rows="10"
+                value={resumeText}
+                onChange={(e) => setResumeText(e.target.value)}
+                placeholder="Copy everything from your resume document (PDF or Word) and paste it here..."
+                style={{ width: '100%', flexGrow: 1, padding: '1rem', background: 'rgba(255, 255, 255, 0.01)', border: '1px solid var(--border-glass)', borderRadius: '8px', color: '#fff', fontSize: '0.85rem', lineHeight: 1.5, resize: 'none' }}
+              />
+            </div>
+          )}
 
           <button 
             className="btn btn-primary" 
@@ -271,14 +387,14 @@ export default function ResumeAnalyzer() {
         {/* Results Analysis Panel */}
         <div className="results-panel">
           {analyzing && (
-            <div style={{ display: 'flex', flexDirection: 'column', height: '100%', justifyContent: 'center', alignItems: 'center', padding: '3rem 0' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', height: '100%', justifyContent: 'center', alignItems: 'center', padding: '5rem 0' }}>
               <div style={{ width: '40px', height: '40px', border: '3px solid rgba(255,255,255,0.1)', borderTopColor: 'var(--primary)', borderRadius: '50%', animation: 'spin 1s linear infinite', marginBottom: '1.5rem' }}></div>
               <p style={{ color: '#fff', fontWeight: '500', fontSize: '0.95rem' }}>{analysisStep}</p>
             </div>
           )}
 
           {!analyzing && !results && (
-            <div style={{ display: 'flex', flexDirection: 'column', height: '100%', justifyContent: 'center', alignItems: 'center', textAlign: 'center', color: 'var(--text-muted)', padding: '4rem 0' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', height: '100%', justifyContent: 'center', alignItems: 'center', textAlign: 'center', color: 'var(--text-muted)', padding: '5rem 0' }}>
               <svg viewBox="0 0 24 24" width="48" height="48" stroke="currentColor" strokeWidth="1" fill="none" strokeLinecap="round" strokeLinejoin="round" style={{ marginBottom: '1rem', opacity: 0.5 }}>
                 <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
                 <polyline points="14 2 14 8 20 8"></polyline>
@@ -287,7 +403,7 @@ export default function ResumeAnalyzer() {
                 <polyline points="10 9 9 9 8 9"></polyline>
               </svg>
               <h4 style={{ color: '#fff', fontSize: '1.1rem', marginBottom: '0.5rem' }}>No Analysis Performed</h4>
-              <p style={{ fontSize: '0.85rem', maxWidth: '300px' }}>Paste your resume text on the left and select your target role to check your compatibility scores.</p>
+              <p style={{ fontSize: '0.85rem', maxWidth: '300px' }}>Upload your resume file (.pdf, .docx) or paste plain text on the left to evaluate your placement readiness score.</p>
             </div>
           )}
 

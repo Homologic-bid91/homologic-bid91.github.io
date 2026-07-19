@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import ResumeBuilder from './ResumeBuilder';
 import ResumeAnalyzer from './ResumeAnalyzer';
 
-export default function InteractiveTools({ onboardingStages, flashcards }) {
+export default function InteractiveTools({ onboardingStages, flashcards, apiUrl }) {
   const [activeTool, setActiveTool] = useState('tracker'); // 'tracker' or 'flashcards'
   
   // Tracker State
@@ -211,7 +211,7 @@ export default function InteractiveTools({ onboardingStages, flashcards }) {
 
       {activeTool === 'analyzer' && (
         <div className="glass-panel">
-          <ResumeAnalyzer />
+          <ResumeAnalyzer apiUrl={apiUrl} />
         </div>
       )}
     </div>

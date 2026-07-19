@@ -3,4 +3,9 @@ uvicorn
 requests
 python-dotenv
 pydantic
-
+pypdf
+python-docx
+python-multipart
+Pillow
+mega.py
+tenacity>=9.0.0
