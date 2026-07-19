@@ -414,15 +414,75 @@ def fetch_youtube_data():
                 "duration": "N/A"
             })
 
+        # Check if Firebase is available
+        key_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "serviceAccountKey.json")
+        has_firebase = os.getenv("FIREBASE_SERVICE_ACCOUNT") or os.path.exists(key_path)
+        
+        resources_list = CURATED_RESOURCES
+        experiences_list = INTERVIEW_EXPERIENCES
+        flashcards_list = FLASHCARDS
+        onboarding_stages_dict = ONBOARDING_STAGES
+        
+        if has_firebase:
+            try:
+                import firebase_admin
+                from firebase_admin import credentials, firestore
+                
+                if not firebase_admin._apps:
+                    firebase_creds_json = os.getenv("FIREBASE_SERVICE_ACCOUNT")
+                    if firebase_creds_json:
+                        creds_dict = json.loads(firebase_creds_json)
+                        cred = credentials.Certificate(creds_dict)
+                        firebase_admin.initialize_app(cred)
+                    else:
+                        cred = credentials.Certificate(key_path)
+                        firebase_admin.initialize_app(cred)
+                
+                db = firestore.client()
+                
+                # Fetch resources
+                print("Fetching resources from Firestore during static compile...")
+                resources_list = [doc.to_dict() for doc in db.collection("resources").stream()]
+                if not resources_list:
+                    resources_list = CURATED_RESOURCES
+                    
+                # Fetch experiences
+                print("Fetching experiences from Firestore during static compile...")
+                experiences_list = [doc.to_dict() for doc in db.collection("experiences").stream()]
+                def get_exp_num(exp):
+                    try:
+                        return int(exp.get("id", "").split("-")[-1])
+                    except Exception:
+                        return 0
+                experiences_list.sort(key=get_exp_num, reverse=True)
+                if not experiences_list:
+                    experiences_list = INTERVIEW_EXPERIENCES
+                    
+                # Fetch flashcards
+                print("Fetching flashcards from Firestore during static compile...")
+                flashcards_list = [doc.to_dict() for doc in db.collection("flashcards").stream()]
+                if not flashcards_list:
+                    flashcards_list = FLASHCARDS
+                    
+                # Fetch onboardingStages
+                print("Fetching onboarding stages from Firestore during static compile...")
+                stages_docs = db.collection("onboardingStages").stream()
+                onboarding_stages_dict = {doc.id: doc.to_dict().get("stages", []) for doc in stages_docs}
+                if not onboarding_stages_dict:
+                    onboarding_stages_dict = ONBOARDING_STAGES
+                    
+            except Exception as e:
+                print(f"Error fetching Firestore data during static compile, falling back to static lists: {e}")
+
         import datetime
         return {
             "channel": channel,
             "playlists": playlists,
             "videos": videos,
-            "resources": CURATED_RESOURCES,
-            "experiences": INTERVIEW_EXPERIENCES,
-            "flashcards": FLASHCARDS,
-            "onboardingStages": ONBOARDING_STAGES,
+            "resources": resources_list,
+            "experiences": experiences_list,
+            "flashcards": flashcards_list,
+            "onboardingStages": onboarding_stages_dict,
             "lastUpdated": datetime.datetime.utcnow().isoformat() + "Z"
         }
 

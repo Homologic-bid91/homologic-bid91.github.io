@@ -58,6 +58,41 @@ def save_data(data):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to write to database file: {e}")
 
+import firebase_admin
+from firebase_admin import credentials, firestore
+
+db = None
+try:
+    if not firebase_admin._apps:
+        firebase_creds_json = os.getenv("FIREBASE_SERVICE_ACCOUNT")
+        if firebase_creds_json:
+            creds_dict = json.loads(firebase_creds_json)
+            cred = credentials.Certificate(creds_dict)
+            firebase_admin.initialize_app(cred)
+            print("Firebase initialized with environment variable credentials.")
+        else:
+            key_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "serviceAccountKey.json")
+            if os.path.exists(key_path):
+                cred = credentials.Certificate(key_path)
+                firebase_admin.initialize_app(cred)
+                print("Firebase initialized with local serviceAccountKey.json.")
+            else:
+                firebase_admin.initialize_app()
+                print("Firebase initialized with default credentials.")
+    db = firestore.client()
+except Exception as e:
+    print(f"Warning: Failed to initialize Firebase connection: {e}")
+
+def load_firestore_collection(collection_name: str) -> list:
+    if db is not None:
+        try:
+            docs = db.collection(collection_name).stream()
+            return [doc.to_dict() for doc in docs]
+        except Exception as e:
+            print(f"Firestore read error for {collection_name}, falling back to static data: {e}")
+    local_data = load_data()
+    return local_data.get(collection_name, [])
+
 # Pydantic models for validation
 class RoundDetail(BaseModel):
     name: str = Field(..., example="Technical Interview")
@@ -90,76 +125,124 @@ def read_root():
 
 @app.get("/api/all")
 def get_all_data():
+    if db is not None:
+        try:
+            data = {}
+            stats_doc = db.collection("channel").document("stats").get()
+            data["channel"] = stats_doc.to_dict() if stats_doc.exists else {}
+            
+            for coll in ["playlists", "videos", "resources", "experiences", "flashcards"]:
+                docs = db.collection(coll).stream()
+                data[coll] = [doc.to_dict() for doc in docs]
+                
+            stages_docs = db.collection("onboardingStages").stream()
+            data["onboardingStages"] = {doc.id: doc.to_dict().get("stages", []) for doc in stages_docs}
+            return data
+        except Exception as e:
+            print(f"Firestore get_all_data error, falling back to static: {e}")
     return load_data()
 
 @app.get("/api/stats")
 def get_channel_stats():
+    if db is not None:
+        try:
+            stats_doc = db.collection("channel").document("stats").get()
+            if stats_doc.exists:
+                return stats_doc.to_dict()
+        except Exception as e:
+            print(f"Firestore get_channel_stats error: {e}")
     data = load_data()
     return data.get("channel", {})
 
 @app.get("/api/playlists")
 def get_playlists():
-    data = load_data()
-    return data.get("playlists", [])
+    return load_firestore_collection("playlists")
 
 @app.get("/api/videos")
 def get_videos(category: Optional[str] = None, search: Optional[str] = None):
-    data = load_data()
-    videos = data.get("videos", [])
-    
+    videos = load_firestore_collection("videos")
     if category:
         videos = [v for v in videos if v.get("category", "").lower() == category.lower()]
-    
     if search:
         search_lower = search.lower()
         videos = [
             v for v in videos 
             if search_lower in v.get("title", "").lower() or search_lower in v.get("description", "").lower()
         ]
-        
     return videos
 
 @app.get("/api/resources")
 def get_resources(company: Optional[str] = None):
-    data = load_data()
-    resources = data.get("resources", [])
+    resources = load_firestore_collection("resources")
     if company:
         resources = [r for r in resources if r.get("company", "").lower() == company.lower()]
     return resources
 
 @app.get("/api/experiences")
 def get_experiences(company: Optional[str] = None):
-    data = load_data()
-    experiences = data.get("experiences", [])
+    experiences = load_firestore_collection("experiences")
+    def get_exp_num(exp):
+        try:
+            return int(exp.get("id", "").split("-")[-1])
+        except Exception:
+            return 0
+    experiences.sort(key=get_exp_num, reverse=True)
     if company:
         experiences = [e for e in experiences if e.get("company", "").lower() == company.lower()]
     return experiences
 
 @app.post("/api/experiences")
 def create_experience(exp: InterviewExperienceCreate):
-    data = load_data()
-    experiences = data.get("experiences", [])
-    
-    new_id = f"exp-{len(experiences) + 1}"
     new_exp = exp.dict()
+    existing = get_experiences()
+    new_num = 1
+    if existing:
+        try:
+            max_num = max(int(e.get("id", "").split("-")[-1]) for e in existing if "-" in e.get("id", ""))
+            new_num = max_num + 1
+        except Exception:
+            new_num = len(existing) + 1
+    new_id = f"exp-{new_num}"
     new_exp["id"] = new_id
     
-    experiences.insert(0, new_exp)  # Prepend new experience to show first
+    if db is not None:
+        try:
+            db.collection("experiences").document(new_id).set(new_exp)
+            return {"message": "Interview experience submitted successfully!", "experience": new_exp}
+        except Exception as e:
+            print(f"Firestore create_experience error, saving locally: {e}")
+            
+    data = load_data()
+    experiences = data.get("experiences", [])
+    experiences.insert(0, new_exp)
     data["experiences"] = experiences
     save_data(data)
-    
-    return {"message": "Interview experience submitted successfully!", "experience": new_exp}
+    return {"message": "Interview experience submitted successfully (locally)!", "experience": new_exp}
 
 @app.get("/api/flashcards")
 def get_flashcards(category: Optional[str] = None):
-    data = load_data()
-    cards = data.get("flashcards", [])
+    cards = load_firestore_collection("flashcards")
     if category:
         cards = [c for c in cards if c.get("category", "").lower() == category.lower()]
     return cards
 
 @app.get("/api/onboarding")
 def get_onboarding_stages(company: Optional[str] = None):
+    if db is not None:
+        try:
+            if company:
+                doc = db.collection("onboardingStages").document(company).get()
+                if doc.exists:
+                    return {company: doc.to_dict().get("stages", [])}
+                raise HTTPException(status_code=404, detail=f"Onboarding data for {company} not found")
+            else:
+                stages_docs = db.collection("onboardingStages").stream()
+                return {doc.id: doc.to_dict().get("stages", []) for doc in stages_docs}
+        except HTTPException:
+            raise
+        except Exception as e:
+            print(f"Firestore get_onboarding_stages error, falling back: {e}")
+            
     data = load_data()
     stages = data.get("onboardingStages", {})
     if company:

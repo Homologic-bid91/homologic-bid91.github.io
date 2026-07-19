@@ -23,3 +23,7 @@ backend/.env
 # OS Files
 .DS_Store
 Thumbs.db
+
+# Firebase Credentials
+backend/serviceAccountKey.json
+
