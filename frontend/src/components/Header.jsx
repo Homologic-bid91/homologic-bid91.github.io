@@ -1,6 +1,7 @@
 import React from 'react';
+import logoImg from '../assets/logo.png';
 
-export default function Header({ activeTab, setActiveTab, avatarUrl }) {
+export default function Header({ activeTab, setActiveTab }) {
   const navItems = [
     { id: 'home', label: 'Home' },
     { id: 'videos', label: 'Videos' },
@@ -13,15 +14,11 @@ export default function Header({ activeTab, setActiveTab, avatarUrl }) {
     <nav className="navbar">
       <div className="nav-container">
         <a href="#home" className="logo" onClick={() => setActiveTab('home')}>
-          {avatarUrl ? (
-            <img 
-              src={avatarUrl} 
-              alt="Virtual Gyans Logo" 
-              style={{ width: '32px', height: '32px', borderRadius: '50%', border: '2px solid var(--primary)', objectFit: 'cover' }} 
-            />
-          ) : (
-            <span className="logo-dot"></span>
-          )}
+          <img 
+            src={logoImg} 
+            alt="Virtual Gyans Logo" 
+            style={{ width: '32px', height: '32px', objectFit: 'contain' }} 
+          />
           Virtual Gyans
         </a>
         

@@ -77,16 +77,6 @@ export default function App() {
     fetchData();
   }, []);
 
-  // Update browser tab favicon dynamically with channel logo
-  useEffect(() => {
-    if (channelStats.avatarUrl) {
-      const link = document.querySelector("link[rel~='icon']");
-      if (link) {
-        link.href = channelStats.avatarUrl;
-      }
-    }
-  }, [channelStats.avatarUrl]);
-
   // Handle new experience submission
   const handleSubmitExperience = async (newExp) => {
     try {
@@ -131,7 +121,7 @@ export default function App() {
         <div className="blob blob-3"></div>
       </div>
 
-      <Header activeTab={activeTab} setActiveTab={setActiveTab} avatarUrl={channelStats.avatarUrl} />
+      <Header activeTab={activeTab} setActiveTab={setActiveTab} />
 
       <main style={{ flexGrow: 1 }}>
         {error && (
