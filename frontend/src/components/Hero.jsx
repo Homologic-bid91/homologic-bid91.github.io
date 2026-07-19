@@ -59,7 +59,7 @@ export default function Hero({ stats, setActiveTab }) {
           </div>
         </div>
         
-        <div className="hero-visual">
+        <div className="hero-visual" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}>
           <div className="visual-container">
             <div className="visual-circle visual-circle-1"></div>
             <div className="visual-circle visual-circle-2"></div>
@@ -68,6 +68,9 @@ export default function Hero({ stats, setActiveTab }) {
               alt="Virtual Gyans Avatar" 
               className="channel-avatar"
             />
+          </div>
+          <div style={{ fontFamily: 'var(--font-heading)', fontSize: '1.25rem', fontWeight: '600', color: 'var(--text-primary)', textShadow: '0 0 10px rgba(255,255,255,0.1)' }}>
+            Md Irfan
           </div>
         </div>
       </div>
