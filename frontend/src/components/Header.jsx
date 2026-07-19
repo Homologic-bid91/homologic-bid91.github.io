@@ -1,6 +1,6 @@
 import React from 'react';
 
-export default function Header({ activeTab, setActiveTab }) {
+export default function Header({ activeTab, setActiveTab, avatarUrl }) {
   const navItems = [
     { id: 'home', label: 'Home' },
     { id: 'videos', label: 'Videos' },
@@ -13,8 +13,16 @@ export default function Header({ activeTab, setActiveTab }) {
     <nav className="navbar">
       <div className="nav-container">
         <a href="#home" className="logo" onClick={() => setActiveTab('home')}>
+          {avatarUrl ? (
+            <img 
+              src={avatarUrl} 
+              alt="Virtual Gyans Logo" 
+              style={{ width: '32px', height: '32px', borderRadius: '50%', border: '2px solid var(--primary)', objectFit: 'cover' }} 
+            />
+          ) : (
+            <span className="logo-dot"></span>
+          )}
           Virtual Gyans
-          <span className="logo-dot"></span>
         </a>
         
         <ul className="nav-links">
