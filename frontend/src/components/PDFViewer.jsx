@@ -9,6 +9,28 @@ export default function PDFViewer({ url, title, onClose }) {
   const [error, setError] = useState(null);
   const canvasRef = useRef(null);
   const containerRef = useRef(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
+  // Fullscreen event listener
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+    };
+  }, []);
+
+  const toggleFullscreen = () => {
+    if (!document.fullscreenElement) {
+      containerRef.current.requestFullscreen().catch((err) => {
+        console.error(`Fullscreen error: ${err.message}`);
+      });
+    } else {
+      document.exitFullscreen();
+    }
+  };
 
   // Keyboard protection (prevent print, save, copy)
   useEffect(() => {
@@ -87,22 +109,7 @@ export default function PDFViewer({ url, title, onClose }) {
         viewport: viewport
       };
 
-      page.render(renderContext).promise.then(() => {
-        // Draw diagonal watermarks
-        context.save();
-        context.font = '24px Outfit, Inter, sans-serif';
-        context.fillStyle = 'rgba(200, 200, 200, 0.15)';
-        context.translate(canvas.width / 2, canvas.height / 2);
-        context.rotate(-Math.PI / 4);
-        context.textAlign = 'center';
-        
-        for (let y = -3; y <= 3; y++) {
-          for (let x = -2; x <= 2; x++) {
-            context.fillText('VIRTUAL GYANS - SECURE VIEW', x * 350, y * 180);
-          }
-        }
-        context.restore();
-      });
+      page.render(renderContext).promise;
     });
   }, [pdf, pageNum, scale]);
 
@@ -166,20 +173,6 @@ export default function PDFViewer({ url, title, onClose }) {
           <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 600, color: '#fff', letterSpacing: '0.02em' }}>
             {title || 'View Resource'}
           </h3>
-          <span 
-            style={{
-              fontSize: '0.7rem',
-              padding: '0.2rem 0.5rem',
-              borderRadius: '4px',
-              background: 'rgba(6, 182, 212, 0.1)',
-              color: 'var(--primary)',
-              border: '1px solid rgba(6, 182, 212, 0.2)',
-              marginLeft: '0.5rem',
-              letterSpacing: '0.05em'
-            }}
-          >
-            PROTECTED WINDOW
-          </span>
         </div>
         
         <button 
@@ -419,12 +412,41 @@ export default function PDFViewer({ url, title, onClose }) {
             </button>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-muted)', fontSize: '0.8rem' }}>
-            <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" strokeWidth="2.5" fill="none">
-              <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
-              <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
-            </svg>
-            <span>Protected Canvas View</span>
+          <div style={{ display: 'flex', alignItems: 'center' }}>
+            <button
+              onClick={toggleFullscreen}
+              style={{
+                background: 'rgba(255, 255, 255, 0.05)',
+                border: '1px solid rgba(255, 255, 255, 0.1)',
+                color: '#fff',
+                cursor: 'pointer',
+                padding: '0.4rem 0.8rem',
+                borderRadius: '8px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                fontSize: '0.85rem',
+                transition: 'all 0.2s ease'
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(6, 182, 212, 0.1)'}
+              onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)'}
+            >
+              {isFullscreen ? (
+                <>
+                  <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" strokeWidth="2.5" fill="none" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M4 14h6v6M20 10h-6V4M14 10l7-7M10 14l-7 7" />
+                  </svg>
+                  Exit Fullscreen
+                </>
+              ) : (
+                <>
+                  <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" strokeWidth="2.5" fill="none" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3" />
+                  </svg>
+                  Fullscreen
+                </>
+              )}
+            </button>
           </div>
         </div>
       )}
