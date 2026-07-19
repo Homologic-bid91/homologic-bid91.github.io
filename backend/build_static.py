@@ -68,6 +68,15 @@ CURATED_RESOURCES = [
         "description": "Step-by-step preparation guide for Accenture's cognitive assessment, technical assessment, and coding round.",
         "downloadUrl": "#",
         "tags": ["Accenture", "Cognitive", "Coding", "Aptitude"]
+    },
+    {
+        "id": "irfan-resume",
+        "title": "Md Irfan's Resume",
+        "category": "Resume",
+        "company": "All",
+        "description": "Professional resume of Md Irfan, Software Developer (3+ Years Experience).",
+        "downloadUrl": "https://mega.nz/file/qs53CDja#dS4v5uKG4UGEwdMFtUVcoebN0F5KNmBNP5SqkDo3mEE",
+        "tags": ["Resume", "Developer", "Java", "React"]
     }
 ]
 

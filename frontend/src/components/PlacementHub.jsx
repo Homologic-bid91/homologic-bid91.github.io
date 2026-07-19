@@ -1,7 +1,29 @@
 import React, { useState } from 'react';
+import PDFViewer from './PDFViewer';
 
 export default function PlacementHub({ resources }) {
   const [selectedCompany, setSelectedCompany] = useState('All');
+  const [activePdf, setActivePdf] = useState(null);
+
+  const handleViewPdf = (res) => {
+    let targetUrl = res.downloadUrl;
+    if (!targetUrl || targetUrl === '#') {
+      targetUrl = '/pdfs/placeholder.pdf';
+    }
+    
+    const API_URL = import.meta.env.VITE_API_URL || (window.location.hostname === 'localhost' ? 'http://localhost:8000' : '');
+    let proxyUrl = '';
+    if (targetUrl.startsWith('/') || targetUrl.startsWith('./')) {
+      proxyUrl = targetUrl;
+    } else {
+      proxyUrl = `${API_URL}/api/pdf-proxy?url=${encodeURIComponent(targetUrl)}`;
+    }
+    
+    setActivePdf({
+      url: proxyUrl,
+      title: res.title
+    });
+  };
 
   const companies = ['All', 'Cognizant', 'TCS', 'Accenture', 'All-Rounder'];
 
@@ -70,28 +92,32 @@ export default function PlacementHub({ resources }) {
             </div>
 
             <div className="resource-action">
-              <a 
-                href={res.downloadUrl} 
+              <button 
                 className="btn btn-secondary" 
-                style={{ width: '100%', gap: '0.5rem' }}
+                style={{ width: '100%', gap: '0.5rem', cursor: 'pointer' }}
                 onClick={(e) => {
-                  if (res.downloadUrl === '#') {
-                    e.preventDefault();
-                    window.open("https://mega.nz/folder/Pw5Fja7R#2D5gvXNs5oXZzOZz6jGqyA", "_blank");
-                  }
+                  e.preventDefault();
+                  handleViewPdf(res);
                 }}
               >
                 <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" strokeWidth="2.5" fill="none" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                  <polyline points="7 10 12 15 17 10"></polyline>
-                  <line x1="12" y1="15" x2="12" y2="3"></line>
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                  <circle cx="12" cy="12" r="3"></circle>
                 </svg>
-                Download PDF Resource
-              </a>
+                View PDF Resource
+              </button>
             </div>
           </div>
         ))}
       </div>
+
+      {activePdf && (
+        <PDFViewer 
+          url={activePdf.url} 
+          title={activePdf.title} 
+          onClose={() => setActivePdf(null)} 
+        />
+      )}
     </div>
   );
 }

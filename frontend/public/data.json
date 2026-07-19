@@ -352,6 +352,20 @@
         "Coding",
         "Aptitude"
       ]
+    },
+    {
+      "id": "irfan-resume",
+      "title": "Md Irfan's Resume",
+      "category": "Resume",
+      "company": "All",
+      "description": "Professional resume of Md Irfan, Software Developer (3+ Years Experience).",
+      "downloadUrl": "https://mega.nz/file/qs53CDja#dS4v5uKG4UGEwdMFtUVcoebN0F5KNmBNP5SqkDo3mEE",
+      "tags": [
+        "Resume",
+        "Developer",
+        "Java",
+        "React"
+      ]
     }
   ],
   "experiences": [
@@ -539,5 +553,5 @@
       }
     ]
   },
-  "lastUpdated": "2026-07-19T06:30:28.520950Z"
+  "lastUpdated": "2026-07-19T08:15:08.009859Z"
 }

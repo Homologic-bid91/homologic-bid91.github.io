@@ -3,11 +3,17 @@ import json
 import datetime
 import io
 import re
+import struct
+import base64
+import random
+import requests
 from typing import Optional, List
-from fastapi import FastAPI, HTTPException, Body, File, UploadFile, Form
+from fastapi import FastAPI, HTTPException, Body, File, UploadFile, Form, Response
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from pypdf import PdfReader
+from Crypto.Cipher import AES
+from Crypto.Util import Counter
 import docx
 
 app = FastAPI(
@@ -291,6 +297,123 @@ async def analyze_resume(
         "recommendations": recommendations,
         "companyAdvice": company_advice
     }
+
+# Mega decryption helpers
+def base64_url_decode(data: str) -> bytes:
+    data += '=='[(2 - len(data) * 3) % 4:]
+    for search, replace in (('-', '+'), ('_', '/'), (',', '')):
+        data = data.replace(search, replace)
+    return base64.b64decode(data)
+
+def base64_to_a32(s: str):
+    return str_to_a32(base64_url_decode(s))
+
+def str_to_a32(b: bytes):
+    if len(b) % 4:
+        b += b'\0' * (4 - len(b) % 4)
+    return struct.unpack('>%dI' % (len(b) / 4), b)
+
+def a32_to_str(a):
+    return struct.pack('>%dI' % len(a), *a)
+
+def get_chunks(size: int):
+    p = 0
+    s = 0x20000
+    while p + s < size:
+        yield (p, s)
+        p += s
+        if s < 0x100000:
+            s += 0x20000
+    yield (p, size - p)
+
+def decrypt_mega_file(url: str) -> bytes:
+    if "#" in url:
+        parts = url.replace("https://mega.nz/file/", "").replace("https://mega.nz/#!", "").split("#")
+        file_id = parts[0]
+        file_key_str = parts[1]
+    elif "!" in url:
+        parts = url.split("!")
+        file_id = parts[1]
+        file_key_str = parts[2]
+    else:
+        raise ValueError("Invalid Mega URL format")
+
+    seq_num = random.randint(0, 0xFFFFFFFF)
+    # The folder ID for the shared folder containing Irfan's resume is Pw5Fja7R
+    api_url = f"https://g.api.mega.co.nz/cs?id={seq_num}&n=Pw5Fja7R"
+    payload = [{"a": "g", "g": 1, "n": file_id}]
+    
+    res = requests.post(api_url, json=payload, timeout=30)
+    res_data = res.json()[0]
+    
+    if isinstance(res_data, int) or "g" not in res_data:
+        raise Exception(f"Mega file not accessible (code {res_data})")
+        
+    file_url = res_data["g"]
+    file_size = res_data["s"]
+    
+    file_key = base64_to_a32(file_key_str)
+    k = (file_key[0] ^ file_key[4], file_key[1] ^ file_key[5],
+         file_key[2] ^ file_key[6], file_key[3] ^ file_key[7])
+    iv = file_key[4:6] + (0, 0)
+    
+    input_file = requests.get(file_url, stream=True, timeout=30).raw
+    
+    k_str = a32_to_str(k)
+    counter = Counter.new(128, initial_value=((iv[0] << 32) + iv[1]) << 64)
+    aes = AES.new(k_str, AES.MODE_CTR, counter=counter)
+    
+    decrypted_bytes = bytearray()
+    for chunk_start, chunk_size in get_chunks(file_size):
+        chunk = input_file.read(chunk_size)
+        if not chunk:
+            break
+        decrypted_bytes.extend(aes.decrypt(chunk))
+        
+    return bytes(decrypted_bytes)
+
+@app.get("/api/pdf-proxy")
+def pdf_proxy(url: str):
+    if not url:
+        raise HTTPException(status_code=400, detail="Missing url parameter")
+    
+    if url == "#" or url.endswith("placeholder.pdf"):
+        placeholder_path = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+            "frontend",
+            "public",
+            "pdfs",
+            "placeholder.pdf"
+        )
+        if os.path.exists(placeholder_path):
+            with open(placeholder_path, "rb") as f:
+                return Response(content=f.read(), media_type="application/pdf")
+        raise HTTPException(status_code=404, detail="Placeholder PDF not found")
+        
+    try:
+        if "mega.nz" in url:
+            pdf_data = decrypt_mega_file(url)
+            return Response(
+                content=pdf_data,
+                media_type="application/pdf",
+                headers={
+                    "Content-Disposition": "inline; filename=document.pdf",
+                    "Cache-Control": "public, max-age=3600"
+                }
+            )
+        else:
+            res = requests.get(url, timeout=30)
+            if res.status_code == 200:
+                return Response(
+                    content=res.content,
+                    media_type="application/pdf",
+                    headers={
+                        "Content-Disposition": "inline; filename=document.pdf"
+                    }
+                )
+            raise HTTPException(status_code=res.status_code, detail="Failed to fetch remote PDF")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Proxy error: {str(e)}")
 
 if __name__ == "__main__":
     import uvicorn
